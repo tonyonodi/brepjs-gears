@@ -1,0 +1,35 @@
+{
+  "name": "brepjs-gears",
+  "version": "0.1.0",
+  "description": "Gear generation library for brepjs, ported from py_gearworks. Focused on bevel gears.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "license": "Apache-2.0",
+  "peerDependencies": {
+    "brepjs": "^18.0.0",
+    "occt-wasm": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.2",
+    "brepjs": "^18.69.0",
+    "occt-wasm": "^3.3.1",
+    "typescript": "^6.0.3",
+    "vitest": "^3.2.6"
+  }
+}

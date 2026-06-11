@@ -1,4 +1,4 @@
-import { Vec3 } from './defs.js';
+import { PI, Vec3 } from './defs.js';
 
 export type Mat3 = [Vec3, Vec3, Vec3]; // row-major
 
@@ -152,4 +152,32 @@ export function fromRotvec(rv: Vec3): Mat3 {
 /** Rotate vector v around axis by angle (axis assumed normalized). */
 export function rotateAround(v: Vec3, axis: Vec3, angle: number): Vec3 {
   return mvmul(fromRotvec(vscale(axis, angle)), v);
+}
+
+/** Rotation vector (axis * angle) from a rotation matrix. */
+export function toRotvec(m: Mat3): Vec3 {
+  const tr = m[0][0] + m[1][1] + m[2][2];
+  const cosA = Math.min(1, Math.max(-1, (tr - 1) / 2));
+  const angle = Math.acos(cosA);
+  if (angle < 1e-12) return [0, 0, 0];
+  if (PI - angle < 1e-6) {
+    // near pi the antisymmetric part vanishes; use the symmetric part instead
+    const xx = Math.sqrt(Math.max(0, (m[0][0] + 1) / 2));
+    const yy = Math.sqrt(Math.max(0, (m[1][1] + 1) / 2));
+    const zz = Math.sqrt(Math.max(0, (m[2][2] + 1) / 2));
+    let axis: Vec3;
+    if (xx >= yy && xx >= zz) {
+      axis = [xx, (m[0][1] + m[1][0]) / (4 * xx), (m[0][2] + m[2][0]) / (4 * xx)];
+    } else if (yy >= zz) {
+      axis = [(m[0][1] + m[1][0]) / (4 * yy), yy, (m[1][2] + m[2][1]) / (4 * yy)];
+    } else {
+      axis = [(m[0][2] + m[2][0]) / (4 * zz), (m[1][2] + m[2][1]) / (4 * zz), zz];
+    }
+    return vscale(vnormalize(axis), angle);
+  }
+  const s = 2 * Math.sin(angle);
+  return vscale(
+    [(m[2][1] - m[1][2]) / s, (m[0][2] - m[2][0]) / s, (m[1][0] - m[0][1]) / s],
+    angle,
+  );
 }

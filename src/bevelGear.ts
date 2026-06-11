@@ -1,8 +1,12 @@
 /**
  * Port of py_gearworks.wrapper.BevelGear (InvoluteGear.calc_params, bevel path).
  */
-import { ORIGIN, OUT, PI, Vec3 } from './defs.js';
-import { vscale } from './vec.js';
+import { ORIGIN, OUT, PI, RIGHT, Vec3 } from './defs.js';
+import { vnormalize, vscale } from './vec.js';
+import {
+  calcBevelGearPlacementVector, calcMeshAngle, calcMeshOrientation, ConicData,
+} from './gearMath.js';
+import { conicSphericalRadius } from './gearTeeth.js';
 import {
   Gear, GearRefProfile, generateProfileExtensions, profileChain, ProfileRecipeAtZ,
 } from './core.js';
@@ -93,6 +97,63 @@ export class BevelGear {
 
   get gamma(): number {
     return this.params.coneAngle / 2;
+  }
+
+  get pitchAngle(): number {
+    return (2 * PI) / this.params.numberOfTeeth;
+  }
+
+  /** Pitch radius at the reference plane, real units. */
+  get pitchRadius(): number {
+    return (this.params.numberOfTeeth / 2) * this.params.module;
+  }
+
+  /** Cone info bound to the gear's global transform (py_gearworks cone_data). */
+  get coneData(): ConicData {
+    return {
+      coneAngle: this.params.coneAngle,
+      baseRadius: this.params.numberOfTeeth / 2,
+      transform: this.gearcore.transform,
+    };
+  }
+
+  /**
+   * Align this gear to mesh with another bevel gear, updating this gear's
+   * global transform (center, orientation and rotation angle). Port of
+   * py_gearworks InvoluteGear.mesh_to (bevel branch).
+   *
+   * @param other gear to mesh to, assumed already placed
+   * @param targetDir direction from the other gear towards this one (need not
+   *   be a unit vector and is projected perpendicular to the other gear's axis)
+   * @param backlash backlash coefficient (of module) along the line of action;
+   *   defaults to the sum of both gears' backlash parameters
+   * @param angleBias where to sit within the backlash: 1 contacts in the
+   *   positive direction, -1 in the negative, 0 centers. Default 0.
+   */
+  meshTo(other: BevelGear, targetDir: Vec3 = RIGHT, backlash?: number, angleBias = 0): void {
+    const backlashCoeff = backlash ?? this.params.backlash + other.params.backlash;
+    const backlashAct = this.params.module * backlashCoeff;
+    const dir = vnormalize(targetDir);
+    const trf = this.gearcore.transform;
+    trf.center = calcBevelGearPlacementVector(
+      dir, this.coneData, other.coneData, false, false, 0,
+    );
+    trf.orientation = calcMeshOrientation(
+      this.params.coneAngle,
+      other.params.coneAngle,
+      conicSphericalRadius(this.coneData),
+      other.gearcore.transform,
+      false,
+      false,
+      dir,
+      0,
+    );
+    trf.angle = calcMeshAngle(
+      trf,
+      other.gearcore.transform,
+      this.pitchAngle,
+      other.pitchAngle,
+    ) + ((angleBias / 2) * backlashAct) / this.pitchRadius / Math.cos(this.params.pressureAngle);
   }
 
   private calcParams(): Gear {

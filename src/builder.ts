@@ -18,7 +18,7 @@ import type { AnyShape, Edge, Face, Result, Shape3D, Solid, Wire } from 'brepjs'
 import { RAD2DEG, Vec3 } from './defs.js';
 import type { BevelGear } from './bevelGear.js';
 import { Curve, CurveChain, findCurveIntersect } from './curve.js';
-import { vnorm, vsub } from './vec.js';
+import { mmul, rotZ, toRotvec, vnorm, vscale, vsub } from './vec.js';
 import { GearRefProfile, numTeethAct, profileChain } from './core.js';
 import { GearTransform } from './transform.js';
 
@@ -170,8 +170,45 @@ function genRefSolid(gear: BevelGear): Shape3D {
   return refSolid;
 }
 
+/**
+ * Move a solid built in axis-aligned (scale-only) space into its final pose:
+ * rotate by orientation * rotZ(angle) about the origin, then translate.
+ * Mirror of py_gearworks conv_build123d.apply_transform_part.
+ */
+function placeSolid(solid: Shape3D, trf: GearTransform): Shape3D {
+  const rotvec = toRotvec(mmul(trf.orientation, rotZ(trf.angle)));
+  const angle = vnorm(rotvec);
+  let out = solid;
+  if (angle > 1e-12) {
+    out = rotate(out, angle * RAD2DEG, {
+      at: [0, 0, 0],
+      axis: vscale(rotvec, 1 / angle),
+    }) as Shape3D;
+  }
+  if (vnorm(trf.center) > 0) {
+    out = translate(out, trf.center) as Shape3D;
+  }
+  return out;
+}
+
 /** Build the gear solid in final (module-scaled, positioned) space. */
 export function buildBevelGearSolid(gear: BevelGear): Shape3D {
+  const core = gear.gearcore;
+  // The construction assumes the gear axis is +Z through the origin (cones,
+  // half-space cuts and the tooth pattern all use world Z), so build with the
+  // module scale only and pose the finished solid afterwards — mirror of
+  // py_gearworks GearBuilder, which builds a copy with an identity transform
+  // and applies the real one to the resulting Part.
+  const finalTrf = core.transform;
+  core.transform = new GearTransform({ scale: finalTrf.scale });
+  try {
+    return placeSolid(buildAxisAlignedSolid(gear), finalTrf);
+  } finally {
+    core.transform = finalTrf;
+  }
+}
+
+function buildAxisAlignedSolid(gear: BevelGear): Shape3D {
   const core = gear.gearcore;
   const z0 = core.zVals[0];
   const z1 = core.zVals[core.zVals.length - 1];

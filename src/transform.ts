@@ -27,6 +27,10 @@ export class Transform implements TransformDataLike {
     return vadd(vscale(mvmul(this.orientation, p), this.scale), this.center);
   }
 
+  get xAxis(): Vec3 {
+    return [this.orientation[0][0], this.orientation[1][0], this.orientation[2][0]];
+  }
+
   get zAxis(): Vec3 {
     return [this.orientation[0][2], this.orientation[1][2], this.orientation[2][2]];
   }

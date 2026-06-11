@@ -35,10 +35,27 @@ const pinion = new BevelGear({
   helixAngle: Math.PI / 6, // spiral bevel; use 0 for straight teeth
 });
 
+const wheel = new BevelGear({
+  numberOfTeeth: z2,
+  module: 2,
+  height: 10,
+  coneAngle: 2 * (Math.PI / 2 - gamma),
+  helixAngle: -Math.PI / 6,
+});
+
+// align the pinion to mesh with the wheel; the placement is baked into
+// the built solid
+pinion.meshTo(wheel);
+
 const solid = pinion.buildSolid();
 const blob = unwrap(exportSTEP(solid as never));
 // write blob to a .step file
 ```
+
+`meshTo(other, targetDir?, backlash?, angleBias?)` mirrors
+`py_gearworks.InvoluteGear.mesh_to`: it updates the gear's global transform so
+the pitch cones share their apex and the teeth interleave, with `targetDir`
+picking the direction of this gear from the other (default `RIGHT`).
 
 ### Parameters (`BevelGearParams`)
 
@@ -79,8 +96,8 @@ self-intersecting boundary); this port trims the profile at the loop crossing,
 which removes ~0.1% of volume below the working flank and keeps the cutting
 shell well-formed.
 
-Not (yet) ported: `meshTo` positioning, cylindrical (spur/helical) gears, ring
-gears, racks, cycloid profiles.
+Not (yet) ported: cylindrical (spur/helical) gears, ring gears, racks, cycloid
+profiles.
 
 ## Tests
 
@@ -92,3 +109,15 @@ The test suite compares generated gears against reference STEP files and
 intermediate math fixtures produced by py_gearworks (octoid curve samples,
 profile slice samples at 1e-6, solid volume / bounding box / center of mass /
 cross-section areas / boundary proximity).
+
+## Benchmarks
+
+```bash
+npm run bench                      # one full iteration per bench (~1.5 min)
+BENCH_ITERATIONS=3 npm run bench   # more samples, tighter statistics
+```
+
+`bench/bevelPair.bench.ts` times generating the meshed spiral bevel pair from
+`examples/bevel-pair.mts` (construct + `meshTo` + both solids), each gear's
+solid on its own, and the kernel-free profile math, so B-rep construction and
+gear math can be tracked separately.

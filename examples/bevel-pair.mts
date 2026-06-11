@@ -30,6 +30,9 @@ const wheel = new BevelGear({
   helixAngle: -beta,
 });
 
+// place the pinion against the wheel, so the exported pair meshes
+pinion.meshTo(wheel);
+
 for (const [name, gear] of [['pinion', pinion], ['wheel', wheel]] as const) {
   console.time(name);
   const solid = gear.buildSolid();
